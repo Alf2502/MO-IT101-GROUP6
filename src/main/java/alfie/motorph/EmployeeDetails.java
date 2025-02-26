@@ -5,25 +5,55 @@ import java.io.FileReader;
 import java.io.IOException;
 
 public class EmployeeDetails {
-    
-    public Employee getEmployeeDetails(String employeeDetailsFile, String employeeId) {
-        String line;
-        String delimiter = ",";
-        
-        try (BufferedReader br = new BufferedReader(new FileReader(employeeDetailsFile))) {
+
+    /**
+     * Fetches employee details from a CSV file based on the employee ID.
+     *
+     * @param filePath   Path to the employee details CSV file.
+     * @param employeeId ID of the employee to search for.
+     * @return An Employee object if found, otherwise null.
+     */
+    public Employee getEmployeeDetails(String filePath, String employeeId) {
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            boolean isFirstLine = true; // For skipping headers
+
             while ((line = br.readLine()) != null) {
-                String[] values = line.split(delimiter);
-                if (values[0].equalsIgnoreCase(employeeId)) {
-                    // Create an Employee object and return it
-                    return new Employee(values[0], values[1], values[2], values[11], values[3], values[5], 
-                                        values[4], values[6], values[7], values[8], values[9], values[10], 
-                                        values[12], Double.parseDouble(values[18]));
+                // Skip empty lines and headers
+                if (isFirstLine) {
+                    isFirstLine = false;
+                    if (line.startsWith("EmployeeID")) continue; // Skip header
+                }
+                if (line.trim().isEmpty()) continue;
+
+                String[] parts = line.split(",");
+                if (parts.length < 9) { // Ensure there are enough columns
+                    System.err.println("⚠ Skipping invalid record: " + line);
+                    continue;
+                }
+
+                String empId = parts[0].trim();
+                if (empId.equals(employeeId)) {
+                    // Create and return an Employee object
+                    return new Employee(
+                        empId,
+                        parts[1].trim(), // Last Name
+                        parts[2].trim(), // First Name
+                        parts[11].trim(), // Position
+                        parts[3].trim(), // Date of Birth
+                        parts[4].trim(), // Phone Number
+                        parts[5].trim(), // Address
+                        parts[12].trim(), // Supervisor
+                        Double.parseDouble(parts[18].trim()) // Hourly Rate
+                    );
                 }
             }
         } catch (IOException e) {
-            System.out.println("Error reading employee details: " + e.getMessage());
+            System.err.println("❌ Error reading employee details file: " + e.getMessage());
+        } catch (NumberFormatException e) {
+            System.err.println("❌ Invalid hourly rate format in employee details file.");
         }
-        
-        return null;  // Employee not found
+
+        return null; // Employee not found
     }
 }

@@ -1,69 +1,88 @@
 package alfie.motorph;
 
-import java.text.DecimalFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class MotorPH {
-    
-    public static void main(String[] args) {
-        String employeeDetailsFile = "C:\\ZFiles\\MotorPH_Employee_Details.csv";
-        String workHoursFile = "C:\\ZFiles\\MotorPH_Attendance_Record.csv";
-        String sssFilePath = "C:\\ZFiles\\SSS_Contribution_Schedule.csv";
-        String pagIbigFilePath = "C:\\ZFiles\\PagIbig_Contribution.csv";
-        String taxFilePath = "C:\\ZFiles\\Withholding_Tax.csv";
 
-        String designerNumSign = "##########################################################################################";
-        String designerNegSign = "------------------------------------------------------------------------------------------";
-        String designerWelcome =  "#####                               Welcome to MotorPH                               #####";
-       
+    // File paths (can be moved to a configuration file)
+    private static final String EMPLOYEE_DETAILS_FILE = "C:\\ZFiles\\MotorPH_Employee_Details.csv";
+    private static final String WORK_HOURS_FILE = "C:\\ZFiles\\MotorPH_Attendance_Record.csv";
+    private static final String PAG_IBIG_FILE = "C:\\ZFiles\\PagIbig_Contribution.csv";
+
+    // Design elements
+    private static final String DESIGNER_NUM_SIGN = "##########################################################################################";
+    private static final String DESIGNER_NEG_SIGN = "------------------------------------------------------------------------------------------";
+    private static final String DESIGNER_WELCOME = "#####                               Welcome to MotorPH                               #####";
+
+    // Date formatter
+    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MM/dd/yyyy");
+
+    public static void main(String[] args) {
         try (Scanner scanner = new Scanner(System.in)) {
             boolean exit = false;
-            System.out.println(designerNumSign);
-            System.out.println(designerWelcome);
-            System.out.println(designerNumSign);
+
+            // Display welcome message
+            System.out.println(DESIGNER_NUM_SIGN);
+            System.out.println(DESIGNER_WELCOME);
+            System.out.println(DESIGNER_NUM_SIGN);
+
+            // Prompt for employee ID
             System.out.println("Please provide your employee ID to log-in.");
             System.out.print("Enter your Employee ID: ");
-            String searchValue = scanner.nextLine();  
+            String searchValue = scanner.nextLine().trim();
 
-            EmployeeDetails employeeDetails = new EmployeeDetails();
-            Employee employee = employeeDetails.getEmployeeDetails(employeeDetailsFile, searchValue);
-            
-            if (employee == null) {
-                System.out.println("No employee found with this ID: " + searchValue);
+            // Validate employee ID
+            if (searchValue.isEmpty()) {
+                System.out.println("❌ Employee ID cannot be empty.");
                 return;
             }
 
-            WorkHours workHours = new WorkHours(); 
-            List<SssContribution> sssBrackets = SssContribution.loadSssBrackets();
-            List<PagIbig> pagIbigContributions = PagIbig.loadContributions(pagIbigFilePath);
-            List<WithholdingTax> taxBrackets = WithholdingTax.loadTaxBrackets();
+            // Fetch employee details
+            EmployeeDetails employeeDetails = new EmployeeDetails();
+            Employee employee = employeeDetails.getEmployeeDetails(EMPLOYEE_DETAILS_FILE, searchValue);
 
+            if (employee == null) {
+                System.out.println("❌ No employee found with this ID: " + searchValue);
+                return;
+            }
+
+            // Initialize services
+            WorkHours workHours = new WorkHours();
+            WorkHoursCalculator workHoursCalculator = new WorkHoursCalculator(workHours);
+
+            // Main menu loop
             while (!exit) {
-                System.out.println(designerNegSign);
+                System.out.println(DESIGNER_NEG_SIGN);
                 System.out.println("[1] View Employee Details");
                 System.out.println("[2] Calculate Work Hours and Salary");
+                System.out.println("[3] View Weekly Time-In and Time-Out");
                 System.out.println("[0] Exit");
-                System.out.println("");
+                System.out.println();
                 System.out.print("Please select next action: ");
-                String choice = scanner.nextLine();
-                
+                String choice = scanner.nextLine().trim();
+
                 switch (choice) {
                     case "1" -> displayEmployeeDetails(employee);
-                    case "2" -> calculateWorkHours(workHours, workHoursFile, employee, scanner, sssBrackets, pagIbigContributions, taxBrackets);
-                    case "0" -> { 
+                    case "2" -> calculateSalary(employee, workHoursCalculator, scanner);
+                    case "3" -> viewWeeklyTimeInOut(employee, workHours, scanner);
+                    case "0" -> {
                         exit = true;
                         System.out.println("Exiting the program. Goodbye!");
                     }
-                    default -> System.out.println("Invalid option. Please select again.");
+                    default -> System.out.println("❌ Invalid option. Please select again.");
                 }
             }
         }
     }
-    
+
+    /**
+     * Displays the details of the given employee.
+     *
+     * @param employee The employee whose details will be displayed.
+     */
     private static void displayEmployeeDetails(Employee employee) {
-        System.out.println(" ");
+        System.out.println();
         System.out.println("Good day Mr./Ms.: " + employee.getlogInAs());
         System.out.println("Employee Details");
         System.out.println("ID Number:          " + employee.getId());
@@ -76,97 +95,176 @@ public class MotorPH {
         System.out.println("Hourly Rate:        " + employee.getHourlyRate());
     }
 
-    private static void calculateWorkHours(WorkHours workHours, String workHoursFile, Employee employee, Scanner scanner, 
-                                            List<SssContribution> sssContributions, List<PagIbig> pagIbigContributions, List<WithholdingTax> taxBrackets) { 
-        
-        System.out.print("Enter start date (MM/dd/yyyy): ");
-        String startDateStr = scanner.nextLine().trim();
-        System.out.print("Enter end date (MM/dd/yyyy): ");
-        String endDateStr = scanner.nextLine().trim();
+    /**
+     * Calculates and displays the employee's salary.
+     *
+     * @param employee              The employee for whom to calculate the salary.
+     * @param workHoursCalculator   The work hours calculator service.
+     * @param scanner               The scanner for user input.
+     */
+    private static void calculateSalary(Employee employee, WorkHoursCalculator workHoursCalculator, Scanner scanner) {
+        // Prompt for year
+        System.out.print("Select year (yyyy): ");
+        int year = scanner.nextInt();
+        scanner.nextLine(); // Consume newline
 
-        SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
-        sdf.setLenient(false);
-        DecimalFormat df = new DecimalFormat("#,##0.00");
+        // Prompt for month
+        System.out.println("Select Month (01-12):");
+        System.out.println("[1] January   [2] February  [3] March      [4] April");
+        System.out.println("[5] May       [6] June      [7] July       [8] August");
+        System.out.println("[9] September [10] October  [11] November  [12] December");
+        System.out.print("Enter your choice (1-12): ");
+        int monthChoice = scanner.nextInt();
+        scanner.nextLine(); // Consume newline
 
-        try {
-            Date startDate = sdf.parse(startDateStr);
-            Date endDate = sdf.parse(endDateStr);
+        if (monthChoice < 1 || monthChoice > 12) {
+            System.out.println("❌ Invalid month selection.");
+            return;
+        }
 
-            Map<Date, Double> workRecords = workHours.getWorkRecords(workHoursFile, employee.getId(), startDate, endDate);
-            double totalHours = 0;
-            double totalRegularHours = 0;
-            double totalOvertimeHours = 0;
-            double overtimeThreshold = 8.0;
-            double hourlyRate = employee.getHourlyRate();
-            double overtimeRate = hourlyRate * 1.5;
+        // Calculate start and end dates for the selected month
+        Calendar calendar = Calendar.getInstance();
+        calendar.clear();
+        calendar.set(Calendar.YEAR, year);
+        calendar.set(Calendar.MONTH, monthChoice - 1); // Month is 0-based in Calendar
+        calendar.set(Calendar.DAY_OF_MONTH, 1);
+        Date startDate = calendar.getTime();
 
-            Calendar calendar = Calendar.getInstance();
-            calendar.setTime(startDate);
-            
-            System.out.println(" ");
-            System.out.println("[  Work Hours Summary:  ]");
-            while (!calendar.getTime().after(endDate)) {
-                Date currentDate = calendar.getTime();
-                Double hoursWorked = workRecords.getOrDefault(currentDate, null);
-                
-                if (hoursWorked != null) {
-                    totalHours += hoursWorked;
-                    double regularHours = Math.min(hoursWorked, overtimeThreshold);
-                    double overtimeHours = Math.max(0, hoursWorked - overtimeThreshold);
-                    totalRegularHours += regularHours;
-                    totalOvertimeHours += overtimeHours;
-                    System.out.printf("%s -> %s hours\n", sdf.format(currentDate), df.format(hoursWorked));
-                } else {
-                    System.out.printf("%s -> N/A hours\n", sdf.format(currentDate));
+        calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH));
+        Date endDate = calendar.getTime();
+
+        // Fetch work records for the selected month
+        Map<Date, Double> workRecords = workHoursCalculator.getWorkRecords(WORK_HOURS_FILE, employee.getId(), startDate, endDate);
+
+        if (workRecords.isEmpty()) {
+            System.out.println("❌ No work records found for the selected month.");
+            return;
+        }
+
+        // Display options for viewing salary or deductions
+        boolean backToMain = false;
+        while (!backToMain) {
+            System.out.println("\n[  Options for " + new SimpleDateFormat("MMMM yyyy").format(startDate) + "  ]");
+            System.out.println("[1] View Salary");
+            System.out.println("[2] View Deductions");
+            System.out.println("[3] Back to Main Menu");
+            System.out.println("[0] Exit");
+            System.out.print("Please select an option: ");
+            String option = scanner.nextLine().trim();
+
+            switch (option) {
+                case "1" -> viewSalary(employee, workHoursCalculator, workRecords);
+                case "2" -> viewDeductions(employee, workHoursCalculator, workRecords);
+                case "3" -> backToMain = true;
+                case "0" -> {
+                    System.out.println("Exiting the program. Goodbye!");
+                    System.exit(0);
                 }
-                calendar.add(Calendar.DATE, 1);
+                default -> System.out.println("❌ Invalid option. Please select again.");
             }
-            System.out.printf("[  Total Hours Worked: %s hours  ]\n", df.format(totalHours));
-            
-            System.out.println("------------------------------------------------------------------------------------------");
-            System.out.print("Would you like to calculate your salary? (yes/no): ");
-            String response = scanner.nextLine().trim().toLowerCase();
-            
-            if (response.equals("yes")) {
-                List<SssContribution> sssBrackets = SssContribution.loadSssBrackets();
-                
-                double regularPay = totalRegularHours * hourlyRate;
-                double overtimePay = totalOvertimeHours * overtimeRate;
-                double totalSalary = regularPay + overtimePay;
-                double grossSalary = regularPay + overtimePay; // Define this before using it!
-                
-                double philHealthContribution = PhilHealth.calculateContribution(totalSalary);
-                double sssContribution = SssContribution.calculateContribution(grossSalary, sssBrackets);
-                double pagIbigContribution = PagIbig.calculateContribution(totalSalary, pagIbigContributions);
-                double tax = WithholdingTax.calculateTax(totalSalary, taxBrackets);
-                
-                double totalDeductions = philHealthContribution + sssContribution + pagIbigContribution + tax;
-                double netSalary = totalSalary - totalDeductions;
-                
-                System.out.println("");
-                System.out.println("[  Salary Breakdown  ]");
-                System.out.printf("Regular Hours: %s x %s = %s\n", df.format(totalRegularHours), df.format(hourlyRate), df.format(regularPay));
-                System.out.printf("Overtime Hours: %s x %s = %s\n", df.format(totalOvertimeHours), df.format(overtimeRate), df.format(overtimePay));
-                System.out.printf("Gross Salary: %s\n", df.format(totalSalary));
-                System.out.printf("Total Deductions: %s\n", df.format(totalDeductions));
-                System.out.printf("[ Net Salary: %s ]\n", df.format(netSalary));
-                System.out.println(" ");
+        }
+    }
 
-                System.out.print("Would you like to view the breakdown of deductions? (yes/no): ");
-                String deductionResponse = scanner.nextLine().trim().toLowerCase();
-                if (deductionResponse.equals("yes")) {
-                    System.out.println("");
-                    System.out.println("[  Deductions breakdown  ]");
-                    System.out.printf("PhilHealth Contribution: %s\n", df.format(philHealthContribution));
-                    System.out.printf("SSS Contribution: %s\n", df.format(sssContribution));
-                    System.out.printf("Pag-IBIG Contribution: %s\n", df.format(pagIbigContribution));
-                    System.out.printf("Withholding Tax: %s\n", df.format(tax));
-                    System.out.printf("[ Total Deductions: %s ]\n", df.format(totalDeductions));
-                    System.out.println("  ");
-                }
+    /**
+     * Displays the salary details for the selected month.
+     */
+    private static void viewSalary(Employee employee, WorkHoursCalculator workHoursCalculator, Map<Date, Double> workRecords) {
+    double totalWorkHours = workHoursCalculator.calculateTotalWorkHours(workRecords);
+    double hourlyRate = employee.getHourlyRate();
+    double grossSalary = totalWorkHours * hourlyRate;
+
+    System.out.println("\n[  Salary Details  ]");
+    System.out.printf("Total Work Hours: %.2f hours\n", totalWorkHours);
+    System.out.printf("Hourly Rate:      PHP %.2f\n", hourlyRate);
+    System.out.printf("Gross Salary:     PHP %.2f\n", grossSalary);
+}
+
+    /**
+     * Displays the deductions for the selected month.
+     */
+    private static void viewDeductions(Employee employee, WorkHoursCalculator workHoursCalculator, Map<Date, Double> workRecords) {
+        double totalWorkHours = workHoursCalculator.calculateTotalWorkHours(workRecords);
+        double hourlyRate = employee.getHourlyRate();
+        double grossSalary = totalWorkHours * hourlyRate;
+
+        // Calculate deductions
+        double pagIbigDeduction = PagIbig.calculateContribution(grossSalary);
+        double philHealthDeduction = PhilHealth.calculateContribution(grossSalary);
+        double sssDeduction = SssContribution.calculateContribution(grossSalary);
+        double withholdingTaxDeduction = WithholdingTax.calculateTax(grossSalary);
+        double totalDeductions = pagIbigDeduction + philHealthDeduction + sssDeduction + withholdingTaxDeduction;
+
+        System.out.println("\n[  Deductions  ]");
+        System.out.printf("Pag-IBIG:         PHP %.2f\n", pagIbigDeduction);
+        System.out.printf("PhilHealth:       PHP %.2f\n", philHealthDeduction);
+        System.out.printf("SSS:              PHP %.2f\n", sssDeduction);
+        System.out.printf("Withholding Tax:  PHP %.2f\n", withholdingTaxDeduction);
+        System.out.printf("Total Deductions: PHP %.2f\n", totalDeductions);
+    }
+
+    /**
+     * Displays the weekly time-in and time-out records for the employee.
+     *
+     * @param employee  The employee for whom to view records.
+     * @param workHours The work hours service.
+     * @param scanner   The scanner for user input.
+     */
+    private static void viewWeeklyTimeInOut(Employee employee, WorkHours workHours, Scanner scanner) {
+        // Prompt for year
+        System.out.print("Enter year (YYYY): ");
+        int year = scanner.nextInt();
+        scanner.nextLine(); // Consume newline
+
+        // Prompt for week number
+        System.out.print("Enter week number (1-52): ");
+        int week = scanner.nextInt();
+        scanner.nextLine(); // Consume newline
+
+        // Validate week number
+        if (week < 1 || week > 52) {
+            System.out.println("❌ Invalid week number. Please enter a value between 1 and 52.");
+            return;
+        }
+
+        // Calculate start and end dates for the selected week
+        Calendar calendar = Calendar.getInstance();
+        calendar.clear();
+        calendar.set(Calendar.YEAR, year);
+        calendar.set(Calendar.WEEK_OF_YEAR, week);
+        calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
+        Date startDate = calendar.getTime();
+
+        calendar.add(Calendar.DATE, 6); // Move to Sunday of the same week
+        Date endDate = calendar.getTime();
+
+        // Fetch work records for the selected week
+        Map<Date, String[]> workRecords = workHours.getWorkRecordsWithTime(WORK_HOURS_FILE, employee.getId(), startDate, endDate);
+
+        if (workRecords.isEmpty()) {
+            System.out.println("❌ No work records found for the specified week.");
+            return;
+        }
+
+        // Display time-in and time-out records
+        System.out.println("\n[  Weekly Time-In and Time-Out Records  ]");
+        System.out.printf("Week %d of %d (%s to %s)\n", week, year, new SimpleDateFormat("MM/dd/yyyy").format(startDate), new SimpleDateFormat("MM/dd/yyyy").format(endDate));
+
+        calendar.setTime(startDate);
+        while (!calendar.getTime().after(endDate)) {
+            Date currentDate = calendar.getTime();
+            String[] timeRecord = workRecords.getOrDefault(currentDate, null);
+            String formattedDate = new SimpleDateFormat("MM/dd/yyyy - EEEE").format(currentDate);
+
+            if (timeRecord != null) {
+                System.out.printf("%s -> Time-In: %s, Time-Out: %s\n",
+                    formattedDate,
+                    timeRecord[0], // Time-In
+                    timeRecord[1]); // Time-Out
+            } else {
+                System.out.printf("%s -> No record\n", formattedDate);
             }
-        } catch (ParseException e) {
-            System.out.println("\u274C Invalid date format. Please use MM/dd/yyyy.");
+
+            calendar.add(Calendar.DATE, 1); // Move to the next day
         }
     }
 }

@@ -1,33 +1,34 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package alfie.motorph;
 
-import java.io.*;
-import java.util.*;
+/**
+ * A utility class for calculating Pag-IBIG contributions based on salary.
+ */
+public final class PagIbig {
 
-public class PagIbig {
-    private static final double EMPLOYEE_RATE_1 = 0.01;
-    private static final double EMPLOYEE_RATE_2 = 0.02;
-    private static final double MAX_CONTRIBUTION = 100.00;
+    private static final double EMPLOYEE_RATE_1 = 0.01; // Rate for salaries <= 1500
+    private static final double EMPLOYEE_RATE_2 = 0.02; // Rate for salaries > 1500
+    private static final double MAX_CONTRIBUTION = 100.00; // Maximum contribution limit
 
-    public static double calculateContribution(double salary, List<PagIbig> pagIbig) {
-        double contribution = (salary <= 1500) ? salary * EMPLOYEE_RATE_1 : salary * EMPLOYEE_RATE_2;
-        return Math.min(contribution, MAX_CONTRIBUTION);
+    // Private constructor to prevent instantiation
+    public PagIbig() {
+        throw new UnsupportedOperationException("Utility class should not be instantiated.");
     }
 
-    public static List<PagIbig> loadContributions(String filePath) {
-        List<PagIbig> pagIbigList = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-            String line;
-            br.readLine(); // Skip header
-            while ((line = br.readLine()) != null) {
-                pagIbigList.add(new PagIbig());
-            }
-        } catch (IOException e) {
-            System.out.println("Error loading Pag-IBIG Contributions: " + e.getMessage());
-        }
-        return pagIbigList;
+    /**
+     * Calculates the Pag-IBIG contribution based on the employee's salary.
+     *
+     * @param salary The employee's monthly salary.
+     * @return The calculated Pag-IBIG contribution.
+     */
+    public static double calculateContribution(double salary) {
+    if (salary < 0) {
+        throw new IllegalArgumentException("Salary cannot be negative.");
     }
+
+    double rate = (salary <= 1500) ? EMPLOYEE_RATE_1 : EMPLOYEE_RATE_2;
+    double contribution = salary * rate;
+    return Math.min(contribution, MAX_CONTRIBUTION);
+}
+
+
 }
