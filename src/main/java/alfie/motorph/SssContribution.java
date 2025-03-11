@@ -1,7 +1,11 @@
 package alfie.motorph;
 
-public final class SssContribution {
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 
+public final class SssContribution {
+    private static final String SSS_CONTRIBUTION = "C:\\ZFiles\\SSS_Contribution_Schedule.csv";
     // Private constructor to prevent instantiation
     private SssContribution() {
         throw new UnsupportedOperationException("Utility class should not be instantiated.");
@@ -14,19 +18,34 @@ public final class SssContribution {
      * @return The SSS contribution amount.
      */
     public static double calculateContribution(double salary) {
-        if (salary < 0) {
-            throw new IllegalArgumentException("Salary cannot be negative.");
-        }
+        try (BufferedReader brSSS = new BufferedReader(new FileReader(SSS_CONTRIBUTION))){
+            String line;
+            while ((line = brSSS.readLine()) != null) {
+                String[] parts  = line.split(",");
+                
+                if (parts.length <3 ) {
+                    continue;
+                }
+                
+                try {
+                    double minSalary = Double.parseDouble(parts[0].trim());
+                    double maxSalary = Double.parseDouble(parts[1].trim());
+                    double contribution = Double.parseDouble(parts[2].trim());
+                    
+                    if (salary >= minSalary && salary <= maxSalary) {
+                        return contribution;
 
-        // Example SSS contribution calculation logic
-        if (salary <= 3250) {
-            return 135.00;
-        } else if (salary <= 3750) {
-            return 157.50;
-        } else if (salary <= 4250) {
-            return 180.00;
+                    }
+                } catch (NumberFormatException e) {
+                    System.err.println("Skipping invalid entry: " + line);
+                }
+                
+            }
+        
+            
+        } catch (IOException e) {
+            System.err.println("Error reading SSS contribution file: " + e.getMessage());
         }
-        // Add more brackets as needed...
-        return 0; // Default if no bracket matches
+         return 0.0;
     }
 }

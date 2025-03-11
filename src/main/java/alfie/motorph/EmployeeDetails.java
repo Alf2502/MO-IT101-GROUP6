@@ -41,8 +41,8 @@ public class EmployeeDetails {
                         parts[2].trim(), // First Name
                         parts[11].trim(), // Position
                         parts[3].trim(), // Date of Birth
-                        parts[4].trim(), // Phone Number
-                        parts[5].trim(), // Address
+                        parts[5].trim(), // Phone Number
+                        parts[4].trim(), // Address
                         parts[12].trim(), // Supervisor
                         Double.parseDouble(parts[18].trim()) // Hourly Rate
                     );

@@ -8,7 +8,6 @@ public class MotorPH {
     // File paths (can be moved to a configuration file)
     private static final String EMPLOYEE_DETAILS_FILE = "C:\\ZFiles\\MotorPH_Employee_Details.csv";
     private static final String WORK_HOURS_FILE = "C:\\ZFiles\\MotorPH_Attendance_Record.csv";
-    private static final String PAG_IBIG_FILE = "C:\\ZFiles\\PagIbig_Contribution.csv";
 
     // Design elements
     private static final String DESIGNER_NUM_SIGN = "##########################################################################################";
@@ -147,7 +146,8 @@ public class MotorPH {
             System.out.println("\n[  Options for " + new SimpleDateFormat("MMMM yyyy").format(startDate) + "  ]");
             System.out.println("[1] View Salary");
             System.out.println("[2] View Deductions");
-            System.out.println("[3] Back to Main Menu");
+            System.out.println("[3] View Net Salary");
+            System.out.println("[9] Back to Main Menu");
             System.out.println("[0] Exit");
             System.out.print("Please select an option: ");
             String option = scanner.nextLine().trim();
@@ -155,7 +155,8 @@ public class MotorPH {
             switch (option) {
                 case "1" -> viewSalary(employee, workHoursCalculator, workRecords);
                 case "2" -> viewDeductions(employee, workHoursCalculator, workRecords);
-                case "3" -> backToMain = true;
+                case "3" -> viewNetSalaries(employee, workHoursCalculator, workRecords);
+                case "9" -> backToMain = true;
                 case "0" -> {
                     System.out.println("Exiting the program. Goodbye!");
                     System.exit(0);
@@ -182,7 +183,7 @@ public class MotorPH {
     /**
      * Displays the deductions for the selected month.
      */
-    private static void viewDeductions(Employee employee, WorkHoursCalculator workHoursCalculator, Map<Date, Double> workRecords) {
+    private static double viewDeductions(Employee employee, WorkHoursCalculator workHoursCalculator, Map<Date, Double> workRecords) {
         double totalWorkHours = workHoursCalculator.calculateTotalWorkHours(workRecords);
         double hourlyRate = employee.getHourlyRate();
         double grossSalary = totalWorkHours * hourlyRate;
@@ -200,6 +201,32 @@ public class MotorPH {
         System.out.printf("SSS:              PHP %.2f\n", sssDeduction);
         System.out.printf("Withholding Tax:  PHP %.2f\n", withholdingTaxDeduction);
         System.out.printf("Total Deductions: PHP %.2f\n", totalDeductions);
+        
+        return totalDeductions;
+    }
+    
+    /**
+     * Displays the Net Salaries for the selected month.
+     */
+    private static void viewNetSalaries(Employee employee, WorkHoursCalculator workHoursCalculator, Map<Date, Double> workRecords){
+        double totalWorkHours = workHoursCalculator.calculateTotalWorkHours(workRecords);
+        double hourlyRate = employee.getHourlyRate();
+        double grossSalary = totalWorkHours * hourlyRate;
+        
+        // Calculate deductions
+        double pagIbigDeduction = PagIbig.calculateContribution(grossSalary);
+        double philHealthDeduction = PhilHealth.calculateContribution(grossSalary);
+        double sssDeduction = SssContribution.calculateContribution(grossSalary);
+        double withholdingTaxDeduction = WithholdingTax.calculateTax(grossSalary);
+        double totalDeductions = pagIbigDeduction + philHealthDeduction + sssDeduction + withholdingTaxDeduction;
+        
+        double netSalary = grossSalary - totalDeductions;
+        
+        System.out.println("\n[ Net Salary  ]");
+        System.out.printf("Total Deduction:    PHP %.2f\n", totalDeductions);
+        System.out.printf("Gross Salary:   PHP %.2f\n", grossSalary);
+        System.out.printf("Net Salaray: PHP %.2f", netSalary);
+        System.out.println("");
     }
 
     /**
